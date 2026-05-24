@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f97316">
+  <meta name="description" content="चित्र पहिचान गर्नुहोस् — नेपालीमा">
+  <title>Spark</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e5e5e5;
+      --text: #171717;
+      --muted: #737373;
+      --accent: #f97316;
+      --accent-dim: #ea580c;
+      --font: 1.125rem;
+    }
+    html { font-size: 18px; }
+    html, body { height: 100%; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100%;
+      padding: 0.65rem 1rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      min-height: 2rem;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .logo-icon {
+      width: 1.75rem;
+      height: 1.75rem;
+      background: linear-gradient(135deg, var(--accent), #fbbf24);
+      border-radius: 0.4rem;
+      display: grid;
+      place-items: center;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+    h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+    .btn-icon {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      width: 2rem;
+      height: 2rem;
+      border-radius: 0.45rem;
+      cursor: pointer;
+      font-size: 1rem;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .btn-icon:hover { color: var(--text); border-color: var(--accent); }
+    .drop {
+      display: block;
+      border: 2px dashed var(--border);
+      border-radius: 1rem;
+      padding: 2.25rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      background: var(--surface);
+      position: relative;
+    }
+    .drop:hover, .drop.dragover {
+      border-color: var(--accent);
+      background: #fff7ed;
+    }
+    .drop-text { font-size: var(--font); font-weight: 600; }
+    .drop p { color: var(--muted); font-size: 1rem; margin-top: 0.35rem; }
+    .drop strong { color: var(--accent); font-size: 1.5rem; }
+    #fileInput {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .previews {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+      gap: 0.65rem;
+    }
+    .preview {
+      aspect-ratio: 1;
+      border-radius: 0.65rem;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .preview button {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 1.75rem;
+      height: 1.75rem;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 0.85rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .actions { display: flex; gap: 0.65rem; }
+    .btn {
+      flex: 1;
+      padding: 1rem 1.15rem;
+      border: none;
+      border-radius: 0.85rem;
+      font-size: var(--font);
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-dim); }
+    .btn-ghost {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      flex: 0;
+      padding: 1rem;
+      min-width: 3.25rem;
+    }
+    .result {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.15rem;
+      min-height: 4rem;
+      max-height: 42vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .result.empty {
+      color: var(--muted);
+      font-style: italic;
+      justify-content: center;
+    }
+    .msg {
+      padding: 0.85rem 1rem;
+      border-radius: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: var(--font);
+      line-height: 1.5;
+    }
+    .msg.assistant {
+      background: var(--bg);
+      border: 1px solid var(--border);
+    }
+    .msg.user {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      align-self: flex-end;
+      max-width: 92%;
+    }
+    .msg.loading::after {
+      content: "▋";
+      animation: blink 0.8s step-end infinite;
+      color: var(--accent);
+    }
+    .followup {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .followup.hidden { display: none; }
+    .followup input {
+      flex: 1;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      background: var(--surface);
+      color: var(--text);
+      font-size: var(--font);
+    }
+    .followup input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+    .followup .btn { flex: 0; padding: 0.85rem 1rem; min-width: 3.5rem; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .error { color: #dc2626; font-size: 1rem; }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      z-index: 100;
+    }
+    .overlay.hidden { display: none; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+    .modal h2 { font-size: 1.35rem; margin-bottom: 0.35rem; }
+    .modal p { color: var(--muted); font-size: 1rem; margin-bottom: 1rem; }
+    .modal input {
+      width: 100%;
+      padding: 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 0.65rem;
+      background: var(--bg);
+      color: var(--text);
+      font-size: var(--font);
+      margin-bottom: 0.85rem;
+    }
+    .modal input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+    .modal-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+    .modal-actions .btn { width: 100%; }
+    .btn-secondary {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .hint { font-size: 0.9rem; color: var(--muted); margin-top: 0.75rem; }
+    .hint a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">✦</div>
+        <h1>Spark</h1>
+      </div>
+      <button class="btn-icon" id="settingsBtn" title="API Key">⚙</button>
+    </header>
+
+    <label class="drop" id="dropZone">
+      <input type="file" id="fileInput" accept="image/*,.heic,.heif" multiple>
+      <div class="drop-text"><strong>+</strong> चित्र थप्नुहोस्</div>
+      <p>ट्याप गर्नुहोस् वा तान्नुहोस्</p>
+    </label>
+
+    <div class="previews" id="previews"></div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="analyzeBtn" disabled>पहिचान गर्नुहोस्</button>
+      <button class="btn btn-ghost" id="clearBtn" title="सबै मेट्नुहोस्">✕</button>
+    </div>
+
+    <div class="result empty" id="result">यहाँ नेपालीमा विवरण देखिनेछ…</div>
+
+    <div class="followup hidden" id="followup">
+      <input type="text" id="followupInput" placeholder="थप प्रश्न सोध्नुहोस्…" autocomplete="off">
+      <button class="btn btn-primary" id="followupBtn">➤</button>
+    </div>
+
+    <div class="error" id="error"></div>
+  </div>
+
+  <div class="overlay hidden" id="loginOverlay">
+    <div class="modal">
+      <h2>API Key</h2>
+      <p>Together AI को API key हाल्नुहोस्। यो तपाईंको फोन/ब्राउजरमा सुरक्षित राखिनेछ।</p>
+      <input type="password" id="apiKeyInput" placeholder="sk-..." autocomplete="off">
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="saveKeyBtn">सुरक्षित गर्नुहोस्</button>
+        <button class="btn btn-secondary" id="skipKeyBtn">पछि</button>
+      </div>
+      <p class="hint"><a href="https://api.together.xyz/settings/api-keys" target="_blank" rel="noopener">together.xyz</a> बाट key लिनुहोस्</p>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'chingari_api_key';
+    const MODEL = 'Qwen/Qwen3.5-397B-A17B';
+    const SYSTEM_PROMPT = `This is an image for my dad. Please analyze it and strictly provide a short, concise summary in plain Nepali. 1) IF it is a delivery app: use brief bullet points to list the Scheduled Time, Customer Name, Address, and Drop-off Location, and clearly translate the Customer Notes. 2) IF it is NOT a delivery app: simply describe the main objects, text, or content clearly and briefly. Keep the entire response direct, short, and easy for him to understand.`;
+    const IMAGE_EXT = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg|avif|tiff?)$/i;
+
+    const $ = (id) => document.getElementById(id);
+    const loginOverlay = $('loginOverlay');
+    const apiKeyInput = $('apiKeyInput');
+    const saveKeyBtn = $('saveKeyBtn');
+    const skipKeyBtn = $('skipKeyBtn');
+    const settingsBtn = $('settingsBtn');
+    const dropZone = $('dropZone');
+    const fileInput = $('fileInput');
+    const previews = $('previews');
+    const analyzeBtn = $('analyzeBtn');
+    const clearBtn = $('clearBtn');
+    const resultEl = $('result');
+    const errorEl = $('error');
+    const followupEl = $('followup');
+    const followupInput = $('followupInput');
+    const followupBtn = $('followupBtn');
+
+    let files = [];
+    let objectUrls = [];
+    let history = [];
+    let busy = false;
+
+    function getApiKey() {
+      return localStorage.getItem(STORAGE_KEY) || '';
+    }
+
+    function showLogin(force = false) {
+      loginOverlay.classList.remove('hidden');
+      apiKeyInput.value = getApiKey();
+      apiKeyInput.focus();
+      if (!force && getApiKey()) skipKeyBtn.textContent = 'बन्द गर्नुहोस्';
+      else skipKeyBtn.textContent = 'पछि';
+    }
+
+    function hideLogin() {
+      loginOverlay.classList.add('hidden');
+    }
+
+    function saveApiKey() {
+      const key = apiKeyInput.value.trim();
+      if (!key) return;
+      localStorage.setItem(STORAGE_KEY, key);
+      hideLogin();
+    }
+
+    function isImageFile(file) {
+      if (file.type && file.type.startsWith('image/')) return true;
+      return IMAGE_EXT.test(file.name);
+    }
+
+    function revokeObjectUrls() {
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+      objectUrls = [];
+    }
+
+    function updateUI() {
+      analyzeBtn.disabled = files.length === 0;
+      revokeObjectUrls();
+      previews.innerHTML = files.map((f, i) => {
+        const url = URL.createObjectURL(f);
+        objectUrls.push(url);
+        return `
+          <div class="preview">
+            <img src="${url}" alt="">
+            <button type="button" data-i="${i}" aria-label="हटाउनुहोस्">✕</button>
+          </div>
+        `;
+      }).join('');
+      previews.querySelectorAll('button').forEach(btn => {
+        btn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          files.splice(+btn.dataset.i, 1);
+          updateUI();
+        };
+      });
+    }
+
+    function addFiles(newFiles) {
+      const imgs = [...newFiles].filter(isImageFile);
+      if (!imgs.length && newFiles.length) {
+        errorEl.textContent = 'कृपया चित्र फाइल छान्नुहोस्।';
+        return;
+      }
+      errorEl.textContent = '';
+      files.push(...imgs);
+      updateUI();
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+    }
+
+    function setBusy(on) {
+      busy = on;
+      analyzeBtn.disabled = on || files.length === 0;
+      followupBtn.disabled = on;
+      followupInput.disabled = on;
+    }
+
+    function resetChat() {
+      history = [];
+      resultEl.className = 'result empty';
+      resultEl.innerHTML = 'यहाँ नेपालीमा विवरण देखिनेछ…';
+      followupEl.classList.add('hidden');
+      followupInput.value = '';
+    }
+
+    function appendMsg(role, text, loading = false) {
+      resultEl.classList.remove('empty');
+      const el = document.createElement('div');
+      el.className = `msg ${role}${loading ? ' loading' : ''}`;
+      el.textContent = text;
+      resultEl.appendChild(el);
+      resultEl.scrollTop = resultEl.scrollHeight;
+      return el;
+    }
+
+    async function streamResponse(messages, onDelta) {
+      const apiKey = getApiKey();
+      const res = await fetch('https://api.together.xyz/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
+          stream: true
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `API error ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let text = '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const json = JSON.parse(data);
+            const delta = json.choices?.[0]?.delta?.content;
+            if (delta) {
+              text += delta;
+              onDelta(text);
+            }
+          } catch (_) {}
+        }
+      }
+      return text;
+    }
+
+    async function runChat() {
+      const apiKey = getApiKey();
+      if (!apiKey) { showLogin(true); return; }
+
+      errorEl.textContent = '';
+      setBusy(true);
+      const bubble = appendMsg('assistant', '', true);
+
+      try {
+        const text = await streamResponse(history, (t) => {
+          bubble.textContent = t;
+          resultEl.scrollTop = resultEl.scrollHeight;
+        });
+        bubble.classList.remove('loading');
+        bubble.textContent = text || 'कुनै जवाफ आएन।';
+        history.push({ role: 'assistant', content: text });
+        followupEl.classList.remove('hidden');
+        resultEl.scrollTop = resultEl.scrollHeight;
+      } catch (e) {
+        bubble.remove();
+        errorEl.textContent = e.message;
+        if (e.message.includes('401') || e.message.toLowerCase().includes('auth')) showLogin(true);
+        else history.pop();
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function analyze() {
+      if (!files.length || busy) return;
+      const apiKey = getApiKey();
+      if (!apiKey) { showLogin(true); return; }
+
+      const images = await Promise.all(files.map(fileToBase64));
+      history = [{ role: 'user', content: images.map(url => ({ type: 'image_url', image_url: { url } })) }];
+      resultEl.className = 'result';
+      resultEl.innerHTML = '';
+      followupEl.classList.add('hidden');
+      await runChat();
+    }
+
+    async function sendFollowUp() {
+      const text = followupInput.value.trim();
+      if (!text || busy || !history.length) return;
+
+      followupInput.value = '';
+      appendMsg('user', text);
+      history.push({ role: 'user', content: text });
+      await runChat();
+    }
+
+    saveKeyBtn.onclick = saveApiKey;
+    skipKeyBtn.onclick = hideLogin;
+    apiKeyInput.onkeydown = (e) => { if (e.key === 'Enter') saveApiKey(); };
+    settingsBtn.onclick = () => showLogin(true);
+    analyzeBtn.onclick = analyze;
+    followupBtn.onclick = sendFollowUp;
+    followupInput.onkeydown = (e) => { if (e.key === 'Enter') sendFollowUp(); };
+    clearBtn.onclick = () => {
+      files = [];
+      updateUI();
+      errorEl.textContent = '';
+      resetChat();
+    };
+    fileInput.onchange = () => {
+      addFiles(fileInput.files);
+      fileInput.value = '';
+    };
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+    dropZone.ondrop = (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      addFiles(e.dataTransfer.files);
+    };
+
+    hideLogin();
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').then((reg) => reg.update()).catch(() => {});
+    }
+  </script>
+</body>
+</html>
